@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.collegegrad.suggestme.BuildConfig
 import com.collegegrad.suggestme.UserInterface.SwipeableSkillAssessmentScreen
 import com.collegegrad.suggestme.viewmodel.UserOperationResult
@@ -43,7 +44,7 @@ data class EndGoal(val name: String)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun SkillSelectionForm(userViewModel: UserViewModel) {
+fun SkillSelectionForm(userViewModel: UserViewModel,navController: NavController) {
     var selectedSkill by remember { mutableStateOf<Skill?>(null) }
     var customSkillText by remember { mutableStateOf("") }
     var selectedSkills by remember { mutableStateOf(listOf<Skill>()) }
@@ -113,6 +114,7 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     if (showSkillQuestions) {
         SwipeableSkillAssessmentScreen(
             questionsText = skillQuestions,
+            navController = navController ,
             userId = currentUserId,  // Pass the user ID
             userViewModel = userViewModel,  // Pass the view model
             onBackPressed = { showSkillQuestions = false }

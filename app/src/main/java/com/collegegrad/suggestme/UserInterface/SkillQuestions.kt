@@ -1,5 +1,6 @@
 package com.collegegrad.suggestme.UserInterface
 
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -22,7 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.collegegrad.suggestme.dataclass.QuestionResult
+import com.collegegrad.suggestme.navigation.Screen
 import com.collegegrad.suggestme.viewmodel.UserViewModel
 import kotlin.math.roundToInt
 
@@ -41,6 +44,7 @@ data class MCQuestion(
 @Composable
 fun SwipeableSkillAssessmentScreen(
     questionsText: String,
+    navController: NavController,
     userId: String,
     userViewModel: UserViewModel,
     onBackPressed: () -> Unit
@@ -156,6 +160,9 @@ fun SwipeableSkillAssessmentScreen(
 
             // Show results screen
             ResultScreen(
+                userViewModel = userViewModel,
+                userId = userId,
+                navController = navController,
                 score = currentScore,
                 totalQuestions = questions.size,
                 questions = questions,
@@ -251,6 +258,7 @@ fun SwipeableSkillAssessmentScreen(
                         ) {
                             SwipeableQuestionCard(
                                 question = currentQuestion,
+                                userId = userId,
                                 questionNumber = currentQuestionIndex + 1,
                                 totalQuestions = questions.size,
                                 isSwiping = isSwiping || shouldSwipeToNext, // Pass the swiping state
@@ -320,6 +328,7 @@ fun SwipeableSkillAssessmentScreen(
 @Composable
 fun SwipeableQuestionCard(
     question: MCQuestion,
+    userId: String,
     questionNumber: Int,
     totalQuestions: Int,
     isSwiping: Boolean, // Add this parameter
@@ -416,6 +425,9 @@ fun SwipeableQuestionCard(
 
 @Composable
 fun ResultScreen(
+    userViewModel: UserViewModel,
+    userId: String,
+    navController: NavController,
     score: Int,
     totalQuestions: Int,
     questions: List<MCQuestion>,
@@ -499,6 +511,17 @@ fun ResultScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Back to Dashboard")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = {
+                navController.navigate(Screen.ShowCourses(userId))
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Suggest me a course")
         }
     }
 }
