@@ -5,6 +5,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.collegegrad.suggestme.dataclass.AssessmentResult
+import com.collegegrad.suggestme.dataclass.QuestionResult
 import com.collegegrad.suggestme.dataclass.UserData
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
@@ -138,6 +140,73 @@ class UserViewModel : ViewModel() {
                 onComplete(emptyList())
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    // Add this function to your UserViewModel class
+
+    fun saveAssessmentResult(
+        userId: String,
+        score: Int,
+        totalQuestions: Int,
+        questions: List<QuestionResult>
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+
+                val assessmentResult = AssessmentResult(
+                    userId = userId,
+                    timestamp = System.currentTimeMillis(),
+                    score = score,
+                    totalQuestions = totalQuestions,
+                    questions = questions
+                )
+
+                // Create a subcollection for assessment results
+                val resultRef = userCollectionReference
+                    .document(userId)
+                    .collection("assessmentResults")
+                    .document() // Auto-generate ID for each assessment
+
+                resultRef.set(assessmentResult).await()
+
+                Log.d("Assessment", "Successfully saved assessment result for user: $userId")
+                _operationState.value = UserOperationResult.Success("Assessment result saved successfully")
+
+            } catch (e: Exception) {
+                Log.e("Assessment", "Error saving assessment result", e)
+                _operationState.value = UserOperationResult.Error(e.message ?: "An error occurred")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Add a function to get assessment history for a user
+    fun getAssessmentHistory(
+        userId: String,
+        onComplete: (List<AssessmentResult>) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val resultsSnapshot = userCollectionReference
+                    .document(userId)
+                    .collection("assessmentResults")
+                    .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .get()
+                    .await()
+
+                val assessmentResults = resultsSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject(AssessmentResult::class.java)
+                }
+
+                onComplete(assessmentResults)
+
+            } catch (e: Exception) {
+                Log.e("Assessment", "Error fetching assessment history", e)
+                onComplete(emptyList())
             }
         }
     }

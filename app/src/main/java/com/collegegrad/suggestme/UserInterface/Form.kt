@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.dp
 import com.collegegrad.suggestme.BuildConfig
+import com.collegegrad.suggestme.UserInterface.SwipeableSkillAssessmentScreen
 import com.collegegrad.suggestme.viewmodel.UserOperationResult
 import com.collegegrad.suggestme.viewmodel.UserViewModel
 import com.google.ai.client.generativeai.GenerativeModel
@@ -51,11 +52,13 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     var userName by remember { mutableStateOf("") }
     var showSuccessDialog by remember { mutableStateOf(false) }
 
+    var currentUserId by remember { mutableStateOf("") }
     // Add state for course suggestions and skill tests
     var courseSuggestions by remember { mutableStateOf("") }
     var skillQuestions by remember { mutableStateOf("") }
     var isLoadingSuggestions by remember { mutableStateOf(false) }
     var showSuggestionsDialog by remember { mutableStateOf(false) }
+    var showSkillQuestions by remember { mutableStateOf(false) }
 
     // Track submission state
     val operationState = userViewModel.operationState.value
@@ -105,6 +108,18 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     var selectedInterests by remember { mutableStateOf(setOf<Interest>()) }
     var selectedEndGoals by remember { mutableStateOf(setOf<EndGoal>()) }
 
+    // Display skill assessment questionnaire
+
+    if (showSkillQuestions) {
+        SwipeableSkillAssessmentScreen(
+            questionsText = skillQuestions,
+            userId = currentUserId,  // Pass the user ID
+            userViewModel = userViewModel,  // Pass the view model
+            onBackPressed = { showSkillQuestions = false }
+        )
+        return
+    }
+
     // Display success dialog
     if (showSuccessDialog) {
         AlertDialog(
@@ -113,6 +128,7 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
             text = { Text("Your profile has been saved successfully!") },
             confirmButton = {
                 Button(onClick = {
+
                     showSuccessDialog = false
                     // After dismissing success dialog, generate course suggestions
                     generateCourseSuggestions(
@@ -149,16 +165,20 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
                 ) {
                     Text("Course Suggestions:", style = MaterialTheme.typography.titleMedium)
                     Text(courseSuggestions)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text("Skill Assessment Questions:", style = MaterialTheme.typography.titleMedium)
-                    Text(skillQuestions)
                 }
             },
             confirmButton = {
                 Button(onClick = { showSuggestionsDialog = false }) {
                     Text("Got it")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    showSuggestionsDialog = false
+                    // Show the questionnaire immediately after closing suggestions
+                    showSkillQuestions = true
+                }) {
+                    Text("Take Skill Assessment")
                 }
             }
         )
@@ -437,7 +457,6 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
 
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-
                     ) {
                         endGoals.forEach { goal ->
                             FilterChip(
@@ -463,7 +482,7 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
                 onClick = {
                     // Format the data for Firebase
                     val userId = UUID.randomUUID().toString()
-
+                    currentUserId = userId
                     // Format skills as a string
                     val formattedSkills = selectedSkills.joinToString(", ") {
                         "${it.name}:${it.level.name}"
@@ -525,6 +544,8 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     }
 }
 
+
+
 // Function to generate course suggestions using Gemini API
 private fun generateCourseSuggestions(
     userName: String,
@@ -553,7 +574,8 @@ private fun generateCourseSuggestions(
             // Build the prompt for Gemini
             val prompt = """
     Based on the following user profile, generate:
-    1. Ten multiple-choice technical assessment questions related to their skills. Each question should have four answer choices and indicate the correct answer.
+    1. A list of 5 personalized course recommendations with short explanations that match the user's skills, interests, and goals.
+    2. Ten multiple-choice technical assessment questions related to their skills. Each question should have four answer choices and indicate the correct answer.
     
     User Profile:
     Name: $userName
@@ -561,16 +583,25 @@ private fun generateCourseSuggestions(
     Interests: $interestsText
     End Goals: $endGoalsText
     
-    Each multiple-choice question should be structured as follows:
+    Format your response clearly with two sections:
     
-    Question: [Question text]  
+    COURSE SUGGESTIONS:
+    - [Course name 1]: [Brief explanation]
+    - [Course name 2]: [Brief explanation]
+    ...and so on
+    
+    SKILL ASSESSMENT QUESTIONS:
+    
+    Question 1: [Question text]  
     A) [Option 1]  
     B) [Option 2]  
     C) [Option 3]  
     D) [Option 4]  
     Correct Answer: [Correct option letter]
+    
+    Question 2: [Question text]
+    ...and so on for all 10 questions
 """.trimIndent()
-
 
             // Call Gemini API
             val response = generativeModel.generateContent(prompt)
