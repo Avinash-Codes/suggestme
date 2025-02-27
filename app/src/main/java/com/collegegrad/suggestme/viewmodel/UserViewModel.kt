@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.collegegrad.suggestme.dataclass.UserData
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -29,6 +31,34 @@ class UserViewModel : ViewModel() {
 
     private val _successMessage = mutableStateOf("")
     val successMessage: State<String> = _successMessage
+
+    private val _userData = MutableStateFlow<UserData?>(null)
+    val userData = _userData.asStateFlow()
+
+    fun getCurrentUserDetails(id: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _operationState.value = UserOperationResult.Loading
+
+                val userDoc = userCollectionReference.document(id).get().await()
+                val user = userDoc.toObject(UserData::class.java)
+
+                if (user != null) {
+                    _userData.value = user
+                    _operationState.value = UserOperationResult.Success("User details fetched successfully")
+                } else {
+                    _operationState.value = UserOperationResult.Error("User not found")
+                }
+
+            } catch (e: Exception) {
+                Log.e("UserStorage", "Error fetching user details", e)
+                _operationState.value = UserOperationResult.Error(e.message ?: "An error occurred")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 
     fun addUserToFireStore(
         id: String,
