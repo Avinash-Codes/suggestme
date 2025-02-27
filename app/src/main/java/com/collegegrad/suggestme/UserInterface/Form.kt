@@ -552,20 +552,25 @@ private fun generateCourseSuggestions(
 
             // Build the prompt for Gemini
             val prompt = """
-                Based on the following user profile, suggest:
-                1. Five specific courses or learning resources that would help this user advance their skills and reach their goals.
-                2. Five technical assessment questions related to their skills to test their knowledge level.
-                
-                User Profile:
-                Name: $userName
-                Skills: $skillsText
-                Interests: $interestsText
-                End Goals: $endGoalsText
-                
-                Please format your response with clear sections for "Course Suggestions" and "Skill Assessment Questions".
-                For each course, include a brief description of why it's relevant to the user's goals.
-                For each question, provide a difficulty level matching their skill level.
-            """.trimIndent()
+    Based on the following user profile, generate:
+    1. Ten multiple-choice technical assessment questions related to their skills. Each question should have four answer choices and indicate the correct answer.
+    
+    User Profile:
+    Name: $userName
+    Skills: $skillsText
+    Interests: $interestsText
+    End Goals: $endGoalsText
+    
+    Each multiple-choice question should be structured as follows:
+    
+    Question: [Question text]  
+    A) [Option 1]  
+    B) [Option 2]  
+    C) [Option 3]  
+    D) [Option 4]  
+    Correct Answer: [Correct option letter]
+""".trimIndent()
+
 
             // Call Gemini API
             val response = generativeModel.generateContent(prompt)
