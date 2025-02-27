@@ -1,5 +1,6 @@
 package com.collegegrad.suggestme.UserInterface
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,8 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.dp
 import com.collegegrad.suggestme.BuildConfig
+import com.collegegrad.suggestme.viewmodel.UserOperationResult
 import com.collegegrad.suggestme.viewmodel.UserViewModel
 import com.google.ai.client.generativeai.GenerativeModel
+import java.util.UUID
 import kotlin.math.max
 
 data class Skill(
@@ -31,7 +34,7 @@ enum class SkillLevel {
 data class Interest(val name: String)
 data class EndGoal(val name: String)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SkillSelectionForm(userViewModel: UserViewModel) {
     var selectedSkill by remember { mutableStateOf<Skill?>(null) }
@@ -39,7 +42,13 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     var selectedSkills by remember { mutableStateOf(listOf<Skill>()) }
     var isAddingCustomSkill by remember { mutableStateOf(false) }
     var showSkillDropdown by remember { mutableStateOf(false) }
+    var userName by remember { mutableStateOf("") }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
+    // Track submission state
+    val operationState = userViewModel.operationState.value
+    val isLoading = userViewModel.isLoading.value
+    val successMessage = userViewModel.successMessage.value
 
     // Initialize the Gemini model
     val generativeModel = remember {
@@ -82,6 +91,33 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     var selectedInterests by remember { mutableStateOf(setOf<Interest>()) }
     var selectedEndGoals by remember { mutableStateOf(setOf<EndGoal>()) }
 
+    // Display success dialog
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            title = { Text("Success") },
+            text = { Text("Your profile has been saved successfully!") },
+            confirmButton = {
+                Button(onClick = { showSuccessDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Handle operation state changes
+    LaunchedEffect(operationState) {
+        when (operationState) {
+            is UserOperationResult.Success -> {
+                showSuccessDialog = true
+            }
+            is UserOperationResult.Error -> {
+                // You could show an error dialog here
+            }
+            else -> {}
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -102,6 +138,30 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
             )
 
             Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // User name field
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Your Name",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    OutlinedTextField(
+                        value = userName,
+                        onValueChange = { userName = it },
+                        label = { Text("Enter your name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
 
         // Skills selection section
@@ -343,23 +403,53 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
 
         // Submit button
         item {
+            // Replace just the Button onClick code in your SkillSelectionForm function:
+
             Button(
                 onClick = {
+                    // Format the data for Firebase
+                    val userId = UUID.randomUUID().toString()
 
+                    // Format skills as a string
+                    val formattedSkills = selectedSkills.joinToString(", ") {
+                        "${it.name}:${it.level.name}"
+                    }
+
+                    // Format interests and goals
+                    val formattedInterests = selectedInterests.map { it.name }
+                    val formattedEndGoals = selectedEndGoals.map { it.name }
+
+                    // Add the user to Firestore with separate skills and experience
+                    userViewModel.addUserToFireStore(
+                        id = userId,
+                        name = userName,
+                        skills = formattedSkills,
+                        // experience = "" - Using default empty string
+                        yourEndGoal = formattedEndGoals,
+                        interests = formattedInterests
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = selectedSkills.isNotEmpty() &&
+                enabled = userName.isNotBlank() &&
+                        selectedSkills.isNotEmpty() &&
                         selectedInterests.isNotEmpty() &&
-                        selectedEndGoals.isNotEmpty()
+                        selectedEndGoals.isNotEmpty() &&
+                        !isLoading
             ) {
-                Text("Submit")
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Submit")
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
-
 @Composable
 fun FlowRow(
     modifier: Modifier = Modifier,

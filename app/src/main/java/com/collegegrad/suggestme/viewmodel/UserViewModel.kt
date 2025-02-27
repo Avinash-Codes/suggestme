@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.collegegrad.suggestme.dataclass.UserData
 import com.google.firebase.Firebase
-import com.google.firebase.firestore.auth.User
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -19,7 +18,7 @@ sealed class UserOperationResult {
     object Idle : UserOperationResult()
 }
 
-class UserViewModel:ViewModel() {
+class UserViewModel : ViewModel() {
     private val userCollectionReference = Firebase.firestore.collection("users")
 
     private val _operationState = mutableStateOf<UserOperationResult>(UserOperationResult.Idle)
@@ -31,14 +30,14 @@ class UserViewModel:ViewModel() {
     private val _successMessage = mutableStateOf("")
     val successMessage: State<String> = _successMessage
 
-
     fun addUserToFireStore(
         id: String,
         name: String,
-        skillsAndExperience: Pair<String, String>,
-        yourEndGoal: List<String>
+        skills: String,
+        experience: String = "", // Default to empty if not used
+        yourEndGoal: List<String>,
+        interests: List<String>
     ) {
-        Log.d("Post", "Adding post to firestore under userId: $id")
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -47,29 +46,43 @@ class UserViewModel:ViewModel() {
                 val user = UserData(
                     id = id,
                     name = name,
-                    skillsAndExperience = skillsAndExperience,
-                    yourEndGoal = yourEndGoal
+                    skills = skills,
+                    experience = experience,
+                    yourEndGoal = yourEndGoal,
+                    interests = interests
                 )
 
-                // First, ensure the user directory exists
-                userCollectionReference.document(id).set(mapOf("userId" to id)).await()
+                // Option 1: Store as a single document in the users collection
+                userCollectionReference.document(id).set(user).await()
+                Log.d("UserStorage", "Successfully added user with ID: $id")
 
-                // Then add the post to the userPosts subcollection
-                val userPostsRef = userCollectionReference
+                // If you still want to use subcollections, you can use this approach instead:
+                /*
+                // First create the user document
+                userCollectionReference.document(id)
+                    .set(mapOf(
+                        "userId" to id,
+                        "name" to name,
+                        "createdDate" to System.currentTimeMillis()
+                    ))
+                    .await()
+
+                // Then add the full user data to the userProfiles subcollection
+                val userProfileRef = userCollectionReference
                     .document(id)
-                    .collection("userPosts")
-                    .document(user.id)
+                    .collection("userProfiles")
+                    .document("profile") // Using a fixed ID for the profile document
 
-                userPostsRef.set(user).await()
-                Log.d("Post", "Successfully added post ${user.id} for user $id")
+                userProfileRef.set(user).await()
+                */
 
-                _operationState.value = UserOperationResult.Success("Post added successfully")
-                _successMessage.value = "Post added successfully"
+                _operationState.value = UserOperationResult.Success("User added successfully")
+                _successMessage.value = "User added successfully"
 
             } catch (e: Exception) {
-                Log.e("Post", "Error adding post", e)
+                Log.e("UserStorage", "Error adding user", e)
                 _operationState.value = UserOperationResult.Error(e.message ?: "An error occurred")
-                _successMessage.value = "An error occurred"
+                _successMessage.value = "Error: ${e.message ?: "Unknown error occurred"}"
             } finally {
                 _isLoading.value = false
             }
@@ -80,54 +93,22 @@ class UserViewModel:ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val allPosts = mutableListOf<UserData>()
+                Log.d("UserData", "Starting to fetch users...")
 
-                Log.d("UserData", "Starting to fetch posts...")
-
-                // Try getting posts from the new structure first
-                val userDirectoriesSnapshot = userCollectionReference.get().await()
-                Log.d("UserData", "Found ${userDirectoriesSnapshot.documents.size} user directories")
-
-                if (userDirectoriesSnapshot.documents.isEmpty()) {
-                    // If no user directories found, try getting posts from the old structure
-                    Log.d("UserData", "No user directories found, checking old structure...")
-                    val oldPostsSnapshot = userCollectionReference.get().await()
-                    val oldPosts = oldPostsSnapshot.documents.mapNotNull { doc ->
-                        doc.toObject(UserData::class.java)
-                    }
-                    allPosts.addAll(oldPosts)
-                    Log.d("UserData", "Found ${oldPosts.size} posts in old structure")
-                } else {
-                    // Fetch from new structure
-                    for (userDir in userDirectoriesSnapshot.documents) {
-                        try {
-                            val userPostsSnapshot = userCollectionReference
-                                .document(userDir.id)
-                                .collection("userPosts")
-                                .get()
-                                .await()
-
-                            val userPosts = userPostsSnapshot.documents
-                                .mapNotNull { doc ->
-                                    doc.toObject(UserData::class.java)
-                                }
-                            allPosts.addAll(userPosts)
-                            Log.d("UserData", "Fetched ${userPosts.size} posts for user ${userDir.id}")
-                        } catch (e: Exception) {
-                            Log.e("UserData", "Error fetching posts for user ${userDir.id}", e)
-                        }
-                    }
+                // Direct approach - get all documents from the users collection
+                val usersSnapshot = userCollectionReference.get().await()
+                val allUsers = usersSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject(UserData::class.java)
                 }
 
-                Log.d("UserData", "Total posts fetched: ${allPosts.size}")
-                onComplete(allPosts.sortedByDescending { it.createdDate })
+                Log.d("UserData", "Total users fetched: ${allUsers.size}")
+                onComplete(allUsers.sortedByDescending { it.createdDate })
             } catch (e: Exception) {
-                Log.e("UserData", "Error fetching posts", e)
+                Log.e("UserData", "Error fetching users", e)
                 onComplete(emptyList())
             } finally {
                 _isLoading.value = false
             }
         }
     }
-
 }
