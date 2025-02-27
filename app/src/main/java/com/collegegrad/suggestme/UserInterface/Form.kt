@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
@@ -18,6 +20,10 @@ import com.collegegrad.suggestme.BuildConfig
 import com.collegegrad.suggestme.viewmodel.UserOperationResult
 import com.collegegrad.suggestme.viewmodel.UserViewModel
 import com.google.ai.client.generativeai.GenerativeModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import kotlin.math.max
 
@@ -45,10 +51,18 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
     var userName by remember { mutableStateOf("") }
     var showSuccessDialog by remember { mutableStateOf(false) }
 
+    // Add state for course suggestions and skill tests
+    var courseSuggestions by remember { mutableStateOf("") }
+    var skillQuestions by remember { mutableStateOf("") }
+    var isLoadingSuggestions by remember { mutableStateOf(false) }
+    var showSuggestionsDialog by remember { mutableStateOf(false) }
+
     // Track submission state
     val operationState = userViewModel.operationState.value
     val isLoading = userViewModel.isLoading.value
     val successMessage = userViewModel.successMessage.value
+
+    val users by userViewModel.userData.collectAsState()
 
     // Initialize the Gemini model
     val generativeModel = remember {
@@ -98,8 +112,53 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
             title = { Text("Success") },
             text = { Text("Your profile has been saved successfully!") },
             confirmButton = {
-                Button(onClick = { showSuccessDialog = false }) {
+                Button(onClick = {
+                    showSuccessDialog = false
+                    // After dismissing success dialog, generate course suggestions
+                    generateCourseSuggestions(
+                        userName = userName,
+                        skills = selectedSkills,
+                        interests = selectedInterests,
+                        endGoals = selectedEndGoals,
+                        generativeModel = generativeModel,
+                        onSuggestionsReady = { suggestions, questions ->
+                            courseSuggestions = suggestions
+                            skillQuestions = questions
+                            isLoadingSuggestions = false
+                            showSuggestionsDialog = true
+                        },
+                        onLoadingChange = { isLoading ->
+                            isLoadingSuggestions = isLoading
+                        }
+                    )
+                }) {
                     Text("OK")
+                }
+            }
+        )
+    }
+
+    // Display the suggestions dialog
+    if (showSuggestionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuggestionsDialog = false },
+            title = { Text("Personalized Recommendations") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    Text("Course Suggestions:", style = MaterialTheme.typography.titleMedium)
+                    Text(courseSuggestions)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Skill Assessment Questions:", style = MaterialTheme.typography.titleMedium)
+                    Text(skillQuestions)
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showSuggestionsDialog = false }) {
+                    Text("Got it")
                 }
             }
         )
@@ -343,8 +402,6 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
 
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        mainAxisSpacing = 8,
-                        crossAxisSpacing = 8
                     ) {
                         interests.forEach { interest ->
                             FilterChip(
@@ -380,8 +437,7 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
 
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        mainAxisSpacing = 8,
-                        crossAxisSpacing = 8
+
                     ) {
                         endGoals.forEach { goal ->
                             FilterChip(
@@ -403,8 +459,6 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
 
         // Submit button
         item {
-            // Replace just the Button onClick code in your SkillSelectionForm function:
-
             Button(
                 onClick = {
                     // Format the data for Firebase
@@ -428,6 +482,9 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
                         yourEndGoal = formattedEndGoals,
                         interests = formattedInterests
                     )
+                    userViewModel.getAllUserDetails(onComplete = {
+                        userViewModel.userData
+                    })
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = userName.isNotBlank() &&
@@ -448,88 +505,118 @@ fun SkillSelectionForm(userViewModel: UserViewModel) {
 
             Spacer(modifier = Modifier.height(24.dp))
         }
-    }
-}
-@Composable
-fun FlowRow(
-    modifier: Modifier = Modifier,
-    mainAxisSpacing: Int = 0,
-    crossAxisSpacing: Int = 0,
-    content: @Composable () -> Unit
-) {
-    Layout(
-        content = content,
-        modifier = modifier
-    ) { measurables, constraints ->
-        val sequences = mutableListOf<List<Pair<Int, Int>>>()
-        val crossAxisSizes = mutableListOf<Int>()
-        val crossAxisPositions = mutableListOf<Int>()
 
-        var mainAxisSpace = 0
-        var crossAxisSpace = 0
-
-        val currentSequence = mutableListOf<Pair<Int, Int>>()
-        var currentMainAxisSize = 0
-        var currentCrossAxisSize = 0
-
-        // Measure and place children
-        val placeables = measurables.map { measurable ->
-            val placeable = measurable.measure(constraints)
-
-            val mainAxisSize = placeable.width
-            val crossAxisSize = placeable.height
-
-            if (currentMainAxisSize + mainAxisSize + (if (currentSequence.isEmpty()) 0 else mainAxisSpacing) > constraints.maxWidth) {
-                // Create a new sequence
-                sequences += currentSequence.toList()
-                crossAxisSizes += currentCrossAxisSize
-                crossAxisPositions += crossAxisSpace
-
-                crossAxisSpace += currentCrossAxisSize + crossAxisSpacing
-                mainAxisSpace = max(mainAxisSpace, currentMainAxisSize)
-
-                currentSequence.clear()
-                currentMainAxisSize = 0
-                currentCrossAxisSize = 0
-            }
-
-            currentSequence.add(mainAxisSize to crossAxisSize)
-            currentMainAxisSize += mainAxisSize + (if (currentSequence.size > 1) mainAxisSpacing else 0)
-            currentCrossAxisSize = max(currentCrossAxisSize, crossAxisSize)
-
-            placeable
-        }
-
-        // Add the last sequence
-        if (currentSequence.isNotEmpty()) {
-            sequences += currentSequence
-            crossAxisSizes += currentCrossAxisSize
-            crossAxisPositions += crossAxisSpace
-            crossAxisSpace += currentCrossAxisSize
-            mainAxisSpace = max(mainAxisSpace, currentMainAxisSize)
-        }
-
-        // Set the size of the layout
-        layout(
-            width = constraints.maxWidth,
-            height = max(crossAxisSpace, constraints.minHeight)
-        ) {
-            // Track which child we have placed
-            var childIndex = 0
-            sequences.forEachIndexed { i, sequence ->
-                // For each sequence in the list, place the children
-                var mainAxisPosition = 0
-                sequence.forEach { (childMainAxisSize, _) ->
-                    // Place the child
-                    placeables[childIndex].placeRelative(
-                        x = mainAxisPosition,
-                        y = crossAxisPositions[i]
+        // Show loading indicator for suggestions
+        if (isLoadingSuggestions) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        "Generating personalized course suggestions and skill tests...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-
-                    mainAxisPosition += childMainAxisSize + mainAxisSpacing
-                    childIndex++
                 }
             }
         }
     }
+}
+
+// Function to generate course suggestions using Gemini API
+private fun generateCourseSuggestions(
+    userName: String,
+    skills: List<Skill>,
+    interests: Set<Interest>,
+    endGoals: Set<EndGoal>,
+    generativeModel: GenerativeModel,
+    onSuggestionsReady: (String, String) -> Unit,
+    onLoadingChange: (Boolean) -> Unit
+) {
+    onLoadingChange(true)
+
+    // Create a coroutine scope
+    val scope = CoroutineScope(Dispatchers.IO)
+
+    scope.launch {
+        try {
+            // Format the user profile data
+            val skillsText = skills.joinToString(", ") {
+                "${it.name} (${it.level.name.lowercase().replaceFirstChar { it.uppercase() }})"
+            }
+
+            val interestsText = interests.joinToString(", ") { it.name }
+            val endGoalsText = endGoals.joinToString(", ") { it.name }
+
+            // Build the prompt for Gemini
+            val prompt = """
+                Based on the following user profile, suggest:
+                1. Five specific courses or learning resources that would help this user advance their skills and reach their goals.
+                2. Five technical assessment questions related to their skills to test their knowledge level.
+                
+                User Profile:
+                Name: $userName
+                Skills: $skillsText
+                Interests: $interestsText
+                End Goals: $endGoalsText
+                
+                Please format your response with clear sections for "Course Suggestions" and "Skill Assessment Questions".
+                For each course, include a brief description of why it's relevant to the user's goals.
+                For each question, provide a difficulty level matching their skill level.
+            """.trimIndent()
+
+            // Call Gemini API
+            val response = generativeModel.generateContent(prompt)
+            val responseText = response.text ?: "Sorry, I couldn't generate recommendations at this time."
+
+            // Parse the results
+            val parts = parseGeminiResponse(responseText)
+
+            // Update the UI on the main thread
+            withContext(Dispatchers.Main) {
+                onSuggestionsReady(parts.first, parts.second)
+            }
+
+        } catch (e: Exception) {
+            Log.e("GeminiAPI", "Error generating suggestions: ${e.message}")
+
+            // Update UI with error
+            withContext(Dispatchers.Main) {
+                onSuggestionsReady(
+                    "Error generating course suggestions. Please try again.",
+                    "Error generating skill assessment questions. Please try again."
+                )
+            }
+        } finally {
+            withContext(Dispatchers.Main) {
+                onLoadingChange(false)
+            }
+        }
+    }
+}
+
+// Helper function to parse Gemini's response into course suggestions and skill questions
+private fun parseGeminiResponse(response: String): Pair<String, String> {
+    // Default values in case parsing fails
+    var courseSuggestions = response
+    var skillQuestions = ""
+
+    // Try to find the sections in the response
+    val courseSectionRegex = "(?i)course suggestions:?(.+?)(?=skill assessment|$)".toRegex(RegexOption.DOT_MATCHES_ALL)
+    val questionSectionRegex = "(?i)skill assessment questions:?(.+)$".toRegex(RegexOption.DOT_MATCHES_ALL)
+
+    val courseMatch = courseSectionRegex.find(response)
+    val questionMatch = questionSectionRegex.find(response)
+
+    if (courseMatch != null) {
+        courseSuggestions = courseMatch.groupValues[1].trim()
+    }
+
+    if (questionMatch != null) {
+        skillQuestions = questionMatch.groupValues[1].trim()
+    }
+
+    return Pair(courseSuggestions, skillQuestions)
 }
