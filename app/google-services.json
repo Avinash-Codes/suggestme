@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "196687781161",
+    "project_id": "suggestme-bf66c",
+    "storage_bucket": "suggestme-bf66c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:196687781161:android:ef74326cd6f4cfd049eb38",
+        "android_client_info": {
+          "package_name": "com.collegegrad.suggestme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfxRwXdhwJg_8iL_rEgnpefp5vGmkZQBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -11,8 +11,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.rememberNavController
 import com.collegegrad.suggestme.UserInterface.SkillSelectionForm
+import com.collegegrad.suggestme.dataclass.UserData
 import com.collegegrad.suggestme.ui.theme.SuggestmeTheme
+import com.collegegrad.suggestme.viewmodel.UserViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +24,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SuggestmeTheme {
-                SkillSelectionForm()
+                val navController = rememberNavController()
+                val userDataViewModel: UserViewModel = viewModel()
+                SkillSelectionForm(userDataViewModel)
             }
         }
     }

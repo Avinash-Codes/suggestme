@@ -13,6 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.dp
+import com.collegegrad.suggestme.BuildConfig
+import com.collegegrad.suggestme.viewmodel.UserViewModel
+import com.google.ai.client.generativeai.GenerativeModel
 import kotlin.math.max
 
 data class Skill(
@@ -30,12 +33,21 @@ data class EndGoal(val name: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SkillSelectionForm() {
+fun SkillSelectionForm(userViewModel: UserViewModel) {
     var selectedSkill by remember { mutableStateOf<Skill?>(null) }
     var customSkillText by remember { mutableStateOf("") }
     var selectedSkills by remember { mutableStateOf(listOf<Skill>()) }
     var isAddingCustomSkill by remember { mutableStateOf(false) }
     var showSkillDropdown by remember { mutableStateOf(false) }
+
+
+    // Initialize the Gemini model
+    val generativeModel = remember {
+        GenerativeModel(
+            modelName = "gemini-1.5-pro",
+            apiKey = BuildConfig.apiKey
+        )
+    }
 
     // Predefined lists
     val predefinedSkills = remember {
@@ -332,7 +344,9 @@ fun SkillSelectionForm() {
         // Submit button
         item {
             Button(
-                onClick = { /* Handle form submission */ },
+                onClick = {
+
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = selectedSkills.isNotEmpty() &&
                         selectedInterests.isNotEmpty() &&
