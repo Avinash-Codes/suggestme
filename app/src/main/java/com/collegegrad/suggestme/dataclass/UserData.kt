@@ -1,8 +1,10 @@
 package com.collegegrad.suggestme.dataclass
 
 import com.collegegrad.suggestme.UserInterface.Interest
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@Serializable
 data class UserData(
     val id: String = "",
     val name: String = "",

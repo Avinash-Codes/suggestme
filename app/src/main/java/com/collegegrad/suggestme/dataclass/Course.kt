@@ -1,5 +1,8 @@
 package com.collegegrad.suggestme.dataclass
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Course(
     val id: Int,
     val title: String,

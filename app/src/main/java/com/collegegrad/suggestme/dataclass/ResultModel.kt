@@ -1,6 +1,8 @@
 package com.collegegrad.suggestme.dataclass
 
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class AssessmentResult(
     val userId: String = "",
     val timestamp: Long = System.currentTimeMillis(),
@@ -8,7 +10,7 @@ data class AssessmentResult(
     val totalQuestions: Int = 0,
     val questions: List<QuestionResult> = emptyList()
 )
-
+@Serializable
 data class QuestionResult(
     val question: String = "",
     val selectedAnswer: String = "",
