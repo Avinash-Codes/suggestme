@@ -52,7 +52,6 @@ class UserViewModel : ViewModel() {
                 } else {
                     _operationState.value = UserOperationResult.Error("User not found")
                 }
-
             } catch (e: Exception) {
                 Log.e("UserStorage", "Error fetching user details", e)
                 _operationState.value = UserOperationResult.Error(e.message ?: "An error occurred")

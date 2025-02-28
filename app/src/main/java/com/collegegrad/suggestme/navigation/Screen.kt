@@ -10,4 +10,6 @@ interface Screen {
     @Serializable
     data class  ShowCourses(val userId: String) : Screen
 
+    @Serializable
+    data object  ShowCourseDetails : Screen
 }

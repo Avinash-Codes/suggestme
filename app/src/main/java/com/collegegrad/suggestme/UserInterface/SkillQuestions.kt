@@ -517,7 +517,7 @@ fun ResultScreen(
 
         OutlinedButton(
             onClick = {
-                navController.navigate(Screen.ShowCourses(userId))
+                navController.navigate(Screen.ShowCourseDetails)
             },
             modifier = Modifier.fillMaxWidth()
         ) {

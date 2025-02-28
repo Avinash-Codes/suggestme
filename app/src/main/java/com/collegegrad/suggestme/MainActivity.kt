@@ -19,10 +19,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.collegegrad.suggestme.UserInterface.SkillSelectionForm
+import com.collegegrad.suggestme.dataclass.Course
 import com.collegegrad.suggestme.dataclass.UserData
 import com.collegegrad.suggestme.navigation.Screen
 import com.collegegrad.suggestme.ui.screens.ShowCourses
 import com.collegegrad.suggestme.ui.theme.SuggestmeTheme
+import com.collegegrad.suggestme.userinterface.CourseApp
 import com.collegegrad.suggestme.viewmodel.CourseViewModel
 import com.collegegrad.suggestme.viewmodel.UserViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -55,6 +57,11 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate(Screen.SkillSelectionForm)
                             })
                         }
+                    }
+
+                    // Show Course Details Screen
+                    composable<Screen.ShowCourseDetails> {
+                        CourseApp()
                     }
                 }
             }

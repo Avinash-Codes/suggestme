@@ -35,7 +35,6 @@ fun ShowCourses(
     onBackPressed: () -> Unit,
     onRetakeQuiz: () -> Unit
 ) {
-    Log.d("ShowCourses", "ShowCourses: userId=$userId")
     val userData by userViewModel.userData.collectAsState()
     val courseRecommendations by courseViewModel.courseRecommendations.collectAsState()
     val isLoadingUser by userViewModel.isLoading
@@ -57,6 +56,8 @@ fun ShowCourses(
     LaunchedEffect(userId) {
         userViewModel.getCurrentUserDetails(userId)
     }
+
+    Log.d("ShowCourses", "userData: $userData")
 
     // Keep track if suggestions have been requested yet
     var suggestionsRequested by remember { mutableStateOf(false) }
